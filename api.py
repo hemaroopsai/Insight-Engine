@@ -1,6 +1,5 @@
 import os
 import tempfile
-import re
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 import chromadb
@@ -15,79 +14,85 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 
+# Load environment variables (will load GOOGLE_API_KEY from .env file)
 load_dotenv()
 
+# --- FastAPI App Initialization ---
 app = FastAPI(
-    title="Insight Engine: Research API",
-    description="An API for processing documents and holding intelligent conversations.",
+    title="Insight Engine API",
+    description="An API for summarizing and querying web articles and documents.",
     version="2.0.0"
 )
 
-# --- Pydantic Models ---
-class ProcessURLRequest(BaseModel):
+# --- Pydantic Models for Request/Response Bodies ---
+class ProcessRequest(BaseModel):
     urls: list[str]
 
 class AskQuestionRequest(BaseModel):
     query: str
-    chat_history: list[tuple[str, str]] | None = None
+    chat_history: list[tuple[str, str]] = []
+
+class SummarizeRequest(BaseModel):
+    pass
 
 class AnswerResponse(BaseModel):
     answer: str
     sources: list[str]
 
-# --- NEW: Pydantic Model for Summarization ---
-class SummarizeResponse(BaseModel):
-    summary: str
-
-# --- Global Objects ---
+# --- Global Objects (Models, DB Client) ---
 try:
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.1)
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+    
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={'device': 'cpu'}
     )
-    client = chromadb.Client()
+    client = chromadb.Client() 
     COLLECTION_NAME = "insight_engine_collection"
 except Exception as e:
     raise RuntimeError(f"Failed to initialize models or DB client: {e}")
 
 # --- Helper Functions ---
 def clean_llm_output(answer: str) -> str:
-    match = re.search(r"</think>(.*)", answer, re.DOTALL)
-    if match:
-        return match.group(1).strip()
+    """Removes the <think> block from the LLM's output."""
+    if "</think>" in answer:
+        return answer.split("</think>", 1)[-1].strip()
     return answer
 
-def process_documents_logic(documents):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+def process_and_store_documents(documents):
+    """Splits documents and stores them in Chroma DB, replacing the old collection."""
+    text_splitter = RecursiveCharacterTextSplitter(
+        separators=['\n\n', '\n', '.', ','],
+        chunk_size=1000,
+        chunk_overlap=200
+    )
     docs = text_splitter.split_documents(documents)
+    
+    # Delete the old collection to start fresh
     try:
         client.delete_collection(name=COLLECTION_NAME)
     except Exception:
-        pass
+        pass # Ignore if collection doesn't exist
+
     Chroma.from_documents(
-        documents=docs, embedding=embeddings, client=client, collection_name=COLLECTION_NAME
+        documents=docs,
+        embedding=embeddings,
+        client=client,
+        collection_name=COLLECTION_NAME,
     )
 
-def handle_greetings(query: str) -> str | None:
-    greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"]
-    thanks = ["thanks", "thank you", "thx"]
-    if query.lower().strip() in greetings:
-        return "Hello! How can I help you with your documents today?"
-    if query.lower().strip() in thanks:
-        return "You're welcome!"
-    return None
-
 # --- API Endpoints ---
+
 @app.post("/process-urls", status_code=200)
-def process_urls(request: ProcessURLRequest):
-    unique_urls = list(set(url for url in request.urls if url))
-    if not unique_urls:
-        raise HTTPException(status_code=400, detail="No valid URLs provided.")
+def process_urls(request: ProcessRequest):
+    unique_urls = list(set(request.urls))
+    if not any(unique_urls):
+        raise HTTPException(status_code=400, detail="No URLs provided.")
+
     try:
         loader = WebBaseLoader(unique_urls)
         data = loader.load()
-        process_documents_logic(data)
+        process_and_store_documents(data)
         return {"message": "URLs processed successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
@@ -96,125 +101,108 @@ def process_urls(request: ProcessURLRequest):
 async def process_file(file: UploadFile = File(...)):
     if not file or not file.filename:
         raise HTTPException(status_code=400, detail="No file provided.")
-    
-    suffix = os.path.splitext(file.filename)[1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
-    
+
     try:
         if file.content_type == 'application/pdf':
             loader = PyPDFLoader(tmp_path)
         elif file.content_type == 'text/plain':
             loader = TextLoader(tmp_path)
         else:
-            raise HTTPException(status_code=400, detail="Unsupported file type.")
+            raise HTTPException(status_code=400, detail="Unsupported file type. Please upload a PDF or TXT file.")
         
         data = loader.load()
-        process_documents_logic(data)
+        process_and_store_documents(data)
         return {"message": f"File '{file.filename}' processed successfully."}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing file: {e}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {e}")
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-# --- NEW: Summarization Endpoint ---
-@app.post("/summarize", response_model=SummarizeResponse)
-def summarize_documents():
+@app.post("/summarize", response_model=AnswerResponse)
+def summarize_content(request: SummarizeRequest):
     try:
-        vectorstore = Chroma(
-            client=client,
-            collection_name=COLLECTION_NAME,
-            embedding_function=embeddings,
-        )
-        # Fetch all documents from the collection
-        all_docs = vectorstore.get()["documents"]
+        vectorstore = Chroma(client=client, collection_name=COLLECTION_NAME, embedding_function=embeddings)
+        all_docs = vectorstore.get(include=["documents"])['documents']
+        
         if not all_docs:
-            raise HTTPException(status_code=400, detail="No documents found to summarize.")
+            raise HTTPException(status_code=400, detail="No content available to summarize. Please process documents first.")
 
-        # Create a summarization chain
-        prompt_template = """Write a concise summary of the following text, capturing the main points:
+        combined_text = "\n".join(all_docs)
 
-        "{text}"
-
-        CONCISE SUMMARY:"""
-        prompt = ChatPromptTemplate.from_template(prompt_template)
+        summarization_prompt = ChatPromptTemplate.from_template("""
+        Write a concise summary of the following text. Capture the main points and key information.
         
-        summarization_chain = prompt | llm
-
-        # Join all docs into a single string to summarize
-        full_text = "\n\n".join(all_docs)
+        Text:
+        {context}
         
-        summary_result = summarization_chain.invoke({"text": full_text})
+        Summary:
+        """)
         
-        return SummarizeResponse(summary=summary_result.content)
+        summarization_chain = summarization_prompt | llm
+        result = summarization_chain.invoke({"context": combined_text})
+        
+        return AnswerResponse(answer=result.content, sources=["Summary of all processed documents"])
     except Exception as e:
-        if "does not exist" in str(e):
-             raise HTTPException(status_code=400, detail="No documents have been processed yet.")
         raise HTTPException(status_code=500, detail=f"An error occurred during summarization: {e}")
 
 
 @app.post("/ask-question", response_model=AnswerResponse)
 def ask_question(request: AskQuestionRequest):
-    greeting_response = handle_greetings(request.query)
-    if greeting_response:
-        return AnswerResponse(answer=greeting_response, sources=[])
+    # Handle simple conversational greetings
+    greetings = ["hi", "hello", "hey", "namaste", "vanakkam"]
+    thanks = ["thanks", "thank you", "thankyou"]
+    
+    if request.query.lower().strip() in greetings:
+        return AnswerResponse(answer="Hello! How can I help you with your documents today?", sources=["Conversational AI"])
+    if request.query.lower().strip() in thanks:
+        return AnswerResponse(answer="You're welcome! Let me know if you have any other questions.", sources=["Conversational AI"])
 
     try:
-        language = detect(request.query)
-    except LangDetectException:
-        language = "en"
-    
-    try:
+        try:
+            language = detect(request.query)
+        except LangDetectException:
+            language = "en" 
+
         vectorstore = Chroma(client=client, collection_name=COLLECTION_NAME, embedding_function=embeddings)
         retriever = vectorstore.as_retriever()
 
-        # Contextualize question prompt
-        contextualize_q_system_prompt = """Given a chat history and the latest user question \
-        which might reference context in the chat history, formulate a standalone question \
-        which can be understood without the chat history. Do NOT answer the question, \
-        just reformulate it if needed and otherwise return it as is."""
-        contextualize_q_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", contextualize_q_system_prompt),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
-        )
-        history_aware_retriever = create_history_aware_retriever(
-            llm, retriever, contextualize_q_prompt
-        )
-
-        # Answer question prompt
-        qa_system_prompt = f"""Use the following pieces of context to answer the user's question. \
-        If you don't know the answer, just say that you don't know. \
-        Provide only the direct answer to the question, without any of your thought process or preamble. \
-        Answer in the following language: {language}
-
-        Context:
-        {{context}}
+        # Context-aware retriever prompt
+        retriever_prompt = ChatPromptTemplate.from_messages([
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{input}"),
+            ("user", "Given the above conversation, generate a search query to look up in order to get information relevant to the conversation")
+        ])
         
-        Final Answer:"""
-        qa_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", qa_system_prompt),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
-        )
+        history_aware_retriever = create_history_aware_retriever(llm, retriever, retriever_prompt)
 
-        question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-        rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-
-        result = rag_chain.invoke({"input": request.query, "chat_history": request.chat_history or []})
+        # Main answering prompt
+        qa_prompt = ChatPromptTemplate.from_messages([
+            ("system", "Answer the user's question based on the below context.\n\n{context}"),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{input}"),
+        ])
         
-        clean_answer = clean_llm_output(result.get("answer", "No answer found."))
+        document_chain = create_stuff_documents_chain(llm, qa_prompt)
+        retrieval_chain = create_retrieval_chain(history_aware_retriever, document_chain)
+        
+        # Format chat history for the chain
+        formatted_history = []
+        for human, ai in request.chat_history:
+            formatted_history.append({"role": "user", "content": human})
+            formatted_history.append({"role": "assistant", "content": ai})
+
+        result = retrieval_chain.invoke({"input": request.query, "chat_history": formatted_history})
+        
         sources = list(set(doc.metadata.get('source', 'Unknown') for doc in result.get("context", [])))
         
-        return AnswerResponse(answer=clean_answer, sources=sources)
+        return AnswerResponse(answer=result.get("answer", "No answer found."), sources=sources)
 
     except Exception as e:
-        if "does not exist" in str(e):
-            raise HTTPException(status_code=400, detail="No documents processed. Please upload a file or process URLs first.")
+        if "does not exist" in str(e) or "got 0 documents" in str(e):
+             raise HTTPException(status_code=400, detail="No documents processed yet. Please submit URLs or a file first.")
         raise HTTPException(status_code=500, detail=f"An error occurred: {e}")

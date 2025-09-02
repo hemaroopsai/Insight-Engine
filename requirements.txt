@@ -3,6 +3,7 @@ uvicorn
 python-dotenv
 chromadb
 langdetect
+langchain-google-genai
 langchain-huggingface
 sentence-transformers
 unstructured
@@ -15,4 +16,5 @@ langchain-core==0.2.32
 langsmith==0.1.75
 langchain-community==0.2.12
 langchain-text-splitters==0.2.2
-langchain-google-genai
+protobuf==4.25.3
+python-multipart

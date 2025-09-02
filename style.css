@@ -1,85 +1,138 @@
-/* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+/* Base font */
+body { font-family: 'Poppins', sans-serif; }
 
-/* Theme variables */
+/* Main content spacing */
+.main .block-container { padding-top: 2rem; padding-bottom: 2rem; }
+
+/* --- THEME COLOR TOKENS --- */
 :root {
-  color-scheme: light dark; /* Opt into system themes */
-  --primary-bg: #FFFFFF;
-  --secondary-bg: #F7F8FA;
-  --text-color: #212529;
-  --accent-color: #7C3AED; /* richer purple to match hero card */
-  --border-color: #D0D7DE;
-  --card-shadow: 0 8px 16px rgba(0,0,0,0.08);
-  --input-bg: #FFFFFF;
+    /* Light Theme Colors */
+    --primary-blue: #3b82f6;
+    --bg-light: #f9fafb;
+    --panel-light: #ffffff;
+    --text-light: #111827;
+    --muted-light: #4b5563;
+    --border-light: #e5e7eb;
+    --shadow-light: 0 4px 12px rgba(0,0,0,.08);
+
+    /* Dark Theme Colors */
+    --primary-purple: #a855f7;
+    --secondary-purple: #7e22ce;
+    --bg-dark: #111827;
+    --panel-dark: #1f2937;
+    --text-dark: #e5e7eb;
+    --muted-dark: #9ca3af;
+    --border-dark: #374151;
+    --shadow-dark: 0 4px 12px rgba(0,0,0,.25);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --primary-bg: #0E1117;
-    --secondary-bg: #1C2128;
-    --text-color: #E6EDF3;
-    --accent-color: #A78BFA;
-    --border-color: #30363D;
-    --card-shadow: 0 8px 24px rgba(0,0,0,0.25);
-    --input-bg: #0D1117;
-  }
+/* --- LIGHT THEME STYLES --- */
+[data-theme="light"] {
+    background-color: var(--bg-light);
+    color: var(--text-light);
+}
+[data-theme="light"] [data-testid="stSidebar"] {
+    background-color: var(--panel-light);
+    border-right: 1px solid var(--border-light);
+}
+[data-theme="light"] .stButton > button {
+    background: linear-gradient(45deg, var(--primary-purple), var(--secondary-purple)) !important;
+    color: #ffffff !important;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+[data-theme="light"] .stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(168,85,247,.45);
+}
+[data-theme="light"] .stTextInput input,
+[data-theme="light"] .stTextArea textarea,
+[data-theme="light"] [data-testid="stFileUploader"] {
+    background-color: var(--panel-light) !important;
+    color: var(--text-light) !important;
+    border: 1px solid var(--border-light) !important;
+}
+[data-theme="light"] [data-testid="stChatMessage"],
+[data-theme="light"] .stAlert {
+    background-color: var(--panel-light);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-light);
+    border-radius: 12px;
 }
 
-/* Base */
-body { font-family: 'Inter', sans-serif; color: var(--text-color); }
-.stApp { background-color: var(--primary-bg); }
+/* --- DARK THEME STYLES --- */
+[data-theme="dark"] {
+    background: linear-gradient(180deg, var(--bg-dark) 0%, #1a202c 100%);
+    color: var(--text-dark);
+}
+[data-theme="dark"] [data-testid="stSidebar"] {
+    background-color: var(--panel-dark);
+    border-right: 1px solid var(--border-dark);
+}
+[data-theme="dark"] .stButton > button {
+    background: linear-gradient(45deg, var(--primary-purple), var(--secondary-purple)) !important;
+    color: #ffffff !important;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    box-shadow: var(--shadow-dark);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+[data-theme="dark"] .stButton > button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(168,85,247,.45);
+}
+[data-theme="dark"] .stTextInput input,
+[data-theme="dark"] .stTextArea textarea,
+[data-theme="dark"] [data-testid="stFileUploader"] {
+    background-color: var(--bg-dark) !important;
+    color: var(--text-dark) !important;
+    border: 1px solid var(--border-dark) !important;
+}
+[data-theme="dark"] [data-testid="stChatMessage"],
+[data-theme="dark"] .stAlert {
+    background-color: var(--panel-dark);
+    border: 1px solid var(--border-dark);
+    box-shadow: var(--shadow-dark);
+    border-radius: 12px;
+}
 
-/* Centered welcome */
-.idle-container {
-  display: flex; justify-content: center; align-items: center;
-  width: 100%; height: 72vh;
-}
-.idle-container .welcome-card { max-width: 650px; text-align: center; margin-bottom: 0; }
+/* --- SHARED STYLES --- */
 
-/* Sidebar */
-[data-testid="stSidebar"] { background-color: var(--secondary-bg); border-right: 1px solid var(--border-color); }
-[data-testid="stSidebar"] .stTextInput input {
-  background-color: var(--input-bg); color: var(--text-color);
-  border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px;
+/* Bolder sidebar headings and labels */
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] .stMarkdown h2,
+[data-testid="stSidebar"] label {
+    font-weight: 600 !important;
 }
-@media (prefers-color-scheme: dark) {
-  [data-testid="stSidebar"] .stTextInput input { background-color: var(--secondary-bg); }
-}
-/* Optional: widen sidebar */
-[data-testid="stSidebar"][aria-expanded="true"] > div:first-child { width: 320px; }
-[data-testid="stSidebar"][aria-expanded="false"] > div:first-child { width: 320px; margin-left: -320px; }
 
-/* Buttons */
-.stButton > button {
-  background-color: var(--accent-color); color: #fff; border-radius: 10px;
-  border: none; padding: 10px 24px; font-weight: 600;
-  transition: transform .15s ease, filter .15s ease, box-shadow .15s ease;
-  box-shadow: var(--card-shadow);
+/* Centered idle card */
+.idle-wrapper {
+    min-height: 72vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.stButton > button:hover { filter: brightness(1.08); transform: translateY(-2px); }
-.stButton > button:focus-visible { outline: 2px solid color-mix(in oklab, var(--accent-color) 70%, white); outline-offset: 2px; }
+.welcome-card {
+    width: min(760px, 92vw);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    border-radius: 16px;
+}
+[data-theme="light"] .welcome-card {
+    background-color: var(--panel-light);
+    border: 1px solid var(--border-light);
+}
+[data-theme="dark"] .welcome-card {
+    background-color: var(--panel-dark);
+    border: 1px solid var(--border-dark);
+}
 
-/* Cards and chat messages */
-.welcome-card, .stChatMessage {
-  background-color: var(--secondary-bg); border-radius: 14px; padding: 24px;
-  border: 1px solid var(--border-color); box-shadow: var(--card-shadow); margin-bottom: 20px;
-}
-.welcome-card h1 {
-  font-size: 2.4rem; font-weight: 700; color: var(--accent-color);
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-}
-.welcome-card p { font-size: 1.05rem; color: var(--text-color); opacity: .85; }
+/* Title and subtitle inside idle card */
+.welcome-card .icon { font-size: 2.75rem; }
+.welcome-card h1 { font-size: 2.25rem; font-weight: 600; margin: 8px 0 6px; }
+.welcome-card .subtitle { font-size: 1.05rem; opacity: .85; margin-bottom: 24px; }
 
-/* Chat input shell */
-.stChatInput { background-color: var(--primary-bg); border-top: none; }
-/* Robust selector for the textarea */
-div[data-testid="stChatInput"] textarea,
-.stChatInput > div > div > textarea {
-  background-color: var(--input-bg);
-  color: var(--text-color) !important;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-  padding: 12px 14px;
-}
-div[data-testid="stChatInput"] textarea::placeholder { color: color-mix(in oklab, var(--text-color) 55%, transparent); }
