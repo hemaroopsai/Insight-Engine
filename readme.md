@@ -1,0 +1,90 @@
+Insight Engine 🧠
+An intelligent research assistant for summarizing and querying web articles and documents, built with Streamlit, FastAPI, and Google's Gemini API.
+
+🌟 About The Project
+Insight Engine is a powerful RAG (Retrieval-Augmented Generation) application that transforms any web article or local document into a knowledgeable source you can chat with. Instead of manually searching through long texts, you can simply ask questions in natural language and get instant, accurate answers.
+
+This project is built with a modern, decoupled architecture, featuring a powerful FastAPI backend for all AI processing and a beautiful, interactive Streamlit frontend for the user experience.
+
+✨ Key Features
+Process Multiple Sources: Analyze content from multiple URLs or upload your own PDF and TXT files.
+
+Conversational Chat: Engage in a natural, back-and-forth conversation. The app remembers the context of your previous questions.
+
+Instant Summarization: Get a concise summary of all your processed documents with a single click.
+
+Multilingual Support: Ask questions in over 50 languages and get answers in the same language.
+
+Beautiful UI: A clean, modern, and responsive user interface with dynamic light and dark modes.
+
+🛠️ Built With
+Backend: FastAPI
+
+Frontend: Streamlit
+
+AI Orchestration: LangChain
+
+Language Model: Google Gemini API (gemini-2.5-flash)
+
+Vector Database: Chroma DB (in-memory)
+
+Embeddings: Hugging Face sentence-transformers
+
+🚀 Getting Started
+Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+
+Prerequisites
+Python 3.9+
+
+An API Key from Google AI Studio
+
+Installation & Setup
+Clone the repository:
+
+git clone [https://github.com/hemaroopsai/Insight-Engine.git](https://github.com/hemaroopsai/Insight-Engine.git)
+cd Insight-Engine
+
+Create and activate a virtual environment:
+
+# For Windows
+python -m venv venv
+venv\Scripts\activate
+
+# For macOS/Linux
+python3 -m venv venv
+source venv/bin/activate
+
+Install the required packages:
+
+pip install -r requirements.txt
+
+Create a .env file:
+
+Create a new file named .env in the root of your project folder.
+
+Add your Google API key to this file like so:
+
+GOOGLE_API_KEY="YOUR_API_KEY_HERE"
+
+How to Run the Application
+This project requires two separate terminals to run the backend API and the frontend UI.
+
+Start the Backend API:
+
+Open a new terminal, navigate to your project folder, and activate your virtual environment.
+
+Run the following command to start the FastAPI server:
+
+uvicorn api:app --reload
+
+Keep this terminal running.
+
+Start the Frontend UI:
+
+Open a second terminal, navigate to your project folder, and activate your virtual environment.
+
+Run the following command to start the Streamlit app:
+
+streamlit run Main.py
+
+Your web browser should automatically open to the application.
