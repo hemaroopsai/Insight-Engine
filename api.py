@@ -14,17 +14,17 @@ from langchain_community.vectorstores import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 
-# Load environment variables (will load GOOGLE_API_KEY from .env file)
+
 load_dotenv()
 
-# --- FastAPI App Initialization ---
+
 app = FastAPI(
     title="Insight Engine API",
     description="An API for summarizing and querying web articles and documents.",
     version="2.0.0"
 )
 
-# --- Pydantic Models for Request/Response Bodies ---
+
 class ProcessRequest(BaseModel):
     urls: list[str]
 
@@ -39,7 +39,7 @@ class AnswerResponse(BaseModel):
     answer: str
     sources: list[str]
 
-# --- Global Objects (Models, DB Client) ---
+
 try:
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
     
@@ -52,7 +52,6 @@ try:
 except Exception as e:
     raise RuntimeError(f"Failed to initialize models or DB client: {e}")
 
-# --- Helper Functions ---
 def clean_llm_output(answer: str) -> str:
     """Removes the <think> block from the LLM's output."""
     if "</think>" in answer:
@@ -68,12 +67,10 @@ def process_and_store_documents(documents):
     )
     docs = text_splitter.split_documents(documents)
     
-    # Delete the old collection to start fresh
     try:
         client.delete_collection(name=COLLECTION_NAME)
     except Exception:
-        pass # Ignore if collection doesn't exist
-
+        pass
     Chroma.from_documents(
         documents=docs,
         embedding=embeddings,
@@ -81,7 +78,7 @@ def process_and_store_documents(documents):
         collection_name=COLLECTION_NAME,
     )
 
-# --- API Endpoints ---
+
 
 @app.post("/process-urls", status_code=200)
 def process_urls(request: ProcessRequest):
@@ -153,7 +150,7 @@ def summarize_content(request: SummarizeRequest):
 
 @app.post("/ask-question", response_model=AnswerResponse)
 def ask_question(request: AskQuestionRequest):
-    # Handle simple conversational greetings
+  
     greetings = ["hi", "hello", "hey", "namaste", "vanakkam"]
     thanks = ["thanks", "thank you", "thankyou"]
     
@@ -171,7 +168,7 @@ def ask_question(request: AskQuestionRequest):
         vectorstore = Chroma(client=client, collection_name=COLLECTION_NAME, embedding_function=embeddings)
         retriever = vectorstore.as_retriever()
 
-        # Context-aware retriever prompt
+     
         retriever_prompt = ChatPromptTemplate.from_messages([
             MessagesPlaceholder(variable_name="chat_history"),
             ("user", "{input}"),
@@ -180,7 +177,7 @@ def ask_question(request: AskQuestionRequest):
         
         history_aware_retriever = create_history_aware_retriever(llm, retriever, retriever_prompt)
 
-        # Main answering prompt
+        
         qa_prompt = ChatPromptTemplate.from_messages([
             ("system", "Answer the user's question based on the below context.\n\n{context}"),
             MessagesPlaceholder(variable_name="chat_history"),
@@ -190,7 +187,7 @@ def ask_question(request: AskQuestionRequest):
         document_chain = create_stuff_documents_chain(llm, qa_prompt)
         retrieval_chain = create_retrieval_chain(history_aware_retriever, document_chain)
         
-        # Format chat history for the chain
+
         formatted_history = []
         for human, ai in request.chat_history:
             formatted_history.append({"role": "user", "content": human})
