@@ -2,25 +2,24 @@ import streamlit as st
 import requests
 import os
 
-# --- Page Configuration ---
+
 st.set_page_config(
     page_title="🧠Insight Engine",
     layout="wide"
 )
 
-# --- API URL ---
-# This points to your local FastAPI server
+
 API_URL = "http://127.0.0.1:8000"
 
-# --- Function to load local CSS ---
+
 def local_css(file_name):
     with open(file_name) as f:
         st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
-# --- Main App ---
+
 local_css("style.css")
 
-# --- Sidebar ---
+
 with st.sidebar:
     st.header("Configuration")
     
@@ -90,15 +89,15 @@ with st.sidebar:
         st.session_state.processed = False
         st.rerun()
 
-# --- Main Chat Interface ---
 
-# Initialize session state
+
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "processed" not in st.session_state:
     st.session_state.processed = False
 
-# Dynamic UI: Show welcome message or chat history
+
 if not st.session_state.messages:
     st.markdown(
         """
@@ -120,7 +119,7 @@ if not st.session_state.messages:
 
 
 else:
-    # --- ACTIVE CHAT STATE ---
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
